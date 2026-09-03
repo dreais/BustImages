@@ -7,58 +7,107 @@
  * @desc Shows a bust
  * 
  * @arg speaker_name
- * @text Speaker Name
+ * @text Speaker Name (ID)
  * @desc The name of the speaker whose bust to show
  * @type string
+ * 
+ * @arg Bust Assets
+ * @text Bust Assets
  * 
  * @arg pose
  * @desc The pose of the speaker's bust to show
  * @text Pose
  * @type string
+ * @parent Bust Assets
  * 
  * @arg face
  * @desc The face of the speaker's bust to show
  * @text Face
  * @type string
+ * @parent Bust Assets
+ * 
+ * @arg Bust Positioning
+ * @text Bust Positioning
+ * 
+ * @arg pos_preset
+ * @desc The preset position of the bust
+ * @text Position Preset
+ * @type select
+ * @option 0
+ * @option 1
+ * @option 2
+ * @option 3
+ * @option 4
+ * @option 5
+ * @default 0
+ * @parent Bust Positioning 
+ * 
+ * @arg Bust Coordinates
+ * @text Bust Coordinates
+ * @parent Bust Positioning
  * 
  * @arg x
  * @desc The x position of the bust
  * @text X Position
  * @type number
  * @default 0
+ * @parent Bust Coordinates
  * 
  * @arg y
  * @desc The y position of the bust
  * @text Y Position
  * @type number
  * @default 0
+ * @parent Bust Coordinates
  * 
  * @command moveBusts
  * @text Move Busts
  * @desc Moves a bust to a new position
  * 
  * @arg speaker_name
- * @text Speaker Name
+ * @text Speaker Name (ID)
  * @desc The name of the speaker whose bust to move
  * @type string
+ * 
+ * @arg Bust Positioning
+ * @text Bust Positioning
+ * 
+ * @arg pos_preset
+ * @desc The preset position of the bust
+ * @text Position Preset
+ * @type select
+ * @option 0
+ * @option 1
+ * @option 2
+ * @option 3
+ * @option 4
+ * @option 5
+ * @default 0
+ * @parent Bust Positioning 
  * 
  * @arg x
  * @desc The new x position of the bust
  * @text X Position
  * @type number
  * @default 0
+ * @parent Bust Positioning
  * 
  * @arg y
  * @desc The new y position of the bust
  * @text Y Position
  * @type number
  * @default 0
+ * @parent Bust Positioning
+ * 
+ * @arg Transition Effects
+ * @text Transition Effects
  * 
  * @arg duration
  * @desc The duration of the movement in milliseconds
  * @text Duration
  * @type number
  * @default 3000
+ * @parent Transition Effects
  */
 
 
@@ -242,6 +291,17 @@ Game_Interpreter.prototype.updateWaitMode = function() {
 // Plugin commands
 // ----------------------
 
+function setPresetPosition(pos_preset, x, y) {
+    let final_x = 0, final_y = 0;
+    if (pos_preset) {
+        // todo later: implement preset positions
+    } else {
+        final_x = x;
+        final_y = y;
+    }
+    return { x: final_x, y: final_y };
+}
+
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
@@ -250,8 +310,8 @@ PluginManager.registerCommand(
         const name = args.speaker_name;
         const pose = args.pose;
         const face = args.face;
-        const x = Number(args.x);
-        const y = Number(args.y);
+        const pos_preset = Number(args.pos_preset);
+        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y));
         bustManager.showBusts(name, pose, face, x, y);
         bustManager._busts[name]._container.visible = true;
         bustManager._busts[name].moveBusts(x, y);
@@ -263,8 +323,8 @@ PluginManager.registerCommand(
     "moveBusts",
     args => {
         const name = args.speaker_name;
-        const x = Number(args.x);
-        const y = Number(args.y);
+        const pos_preset = Number(args.pos_preset);
+        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y));
         const duration = Number(args.duration) || 3000;
         if (bustManager._busts[name]) {
             bustManager._busts[name]._container.visible = true;
