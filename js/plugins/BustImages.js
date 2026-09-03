@@ -1,6 +1,28 @@
 /*:
  * @target MZ
- * @plugindesc Bust Images
+ * @plugindesc A VN style bust system for RPGM MZ
+ * 
+ * @author dreais
+ * 
+ * @help
+ * Ready to use features:
+ * - Multiple busts
+ * - Dynamic IDs based on characters names
+ * - Basic bust movements with presets or hard coordinates
+ * - Handles pose & expression separately using appropriate subfolders, based on bust IDs
+ * 
+ * Planned features:
+ * - More effects (transitions, movements, scales)
+ * - Handling animated parts (lip sync, blinking, "breath" like movements)
+ * 
+ * Available commands:
+ * - Show Busts
+ * - Move Busts
+ * 
+ * For all commands, a "Speaker Name" is required and acts as a unique ID for characters. Poses and faces need to be included in img/pictures/busts/[speaker name] as a separate folder.
+ * 
+ * @version 0.1
+ * @url https://github.com/dreais/BustImages
  *
  * @command showBusts
  * @text Show Busts
@@ -113,7 +135,7 @@
 
 console.log("BustImages plugin loaded!");
 
-createEmptySprite = function(x, y, filename) {
+const createEmptySprite = function(x, y, filename) {
     const sprite = new Sprite();
     sprite.x = x;
     sprite.y = y;
@@ -122,10 +144,10 @@ createEmptySprite = function(x, y, filename) {
     return sprite;
 }
 
+
 // ----------------------
 // BustManager class
 // ----------------------
-
 
 function BustManager() {
     this.initialize(...arguments);
@@ -149,7 +171,6 @@ BustManager.prototype.showBusts = function(name, pose, face, x, y) {
         const windowLayerIndex = scene.children.indexOf(scene._windowLayer);
         scene.addChildAt(this.container, windowLayerIndex);
     }
-
     // Initialize the bust pose and face if they don't exist
     if (!this._busts[name]) {
         this._busts[name] = new Bust(name, pose, face, x, y);
@@ -174,20 +195,18 @@ BustManager.prototype.update = function() {
             const progress = Math.min(elapsed / bust._moveDuration, 1);
             bust._container.x += (bust._targetX - bust._container.x) * progress;
             bust._container.y += (bust._targetY - bust._container.y) * progress;
-
             if (progress === 1) {
                 bust._moving = false;
                 bust._container.x = bust._targetX;
                 bust._container.y = bust._targetY;
-                
             }
-
             bust._container.x = Math.round(bust._container.x);
             bust._container.y = Math.round(bust._container.y);
 
         }
     }
 }
+
 
 // ----------------------
 // Bust class
@@ -242,6 +261,7 @@ Bust.prototype.needsUpdate = function() {
     return this._container.x !== this._targetX || this._container.y !== this._targetY;
 };
 
+
 // ----------------------
 //  Window_Message hooks
 // ----------------------
@@ -257,6 +277,7 @@ Window_Message.prototype.terminateMessage = function() {
     }
 };
 
+
 // ----------------------
 //  Scene_Map hooks
 // ----------------------
@@ -266,6 +287,7 @@ Scene_Map.prototype.update = function() {
     _Scene_Map_update.call(this);
     bustManager.update();
 }
+
 
 // ----------------------
 // Game_Interpreter hooks
@@ -287,11 +309,12 @@ Game_Interpreter.prototype.updateWaitMode = function() {
     return waiting;
 };
 
+
 // ----------------------
 // Plugin commands
 // ----------------------
 
-function setPresetPosition(pos_preset, x, y) {
+const setPresetPosition = function (pos_preset, x, y) {
     let final_x = 0, final_y = 0;
     if (pos_preset) {
         // todo later: implement preset positions
@@ -339,7 +362,6 @@ PluginManager.registerCommand(
 // ----------------------
 
 const bustManager = new BustManager();
-
 
 // MISC STUFF
 nw.Window.get().showDevTools();
