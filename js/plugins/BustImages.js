@@ -32,6 +32,33 @@
  * @text Y Position
  * @type number
  * @default 0
+ * 
+ * @command moveBusts
+ * @text Move Busts
+ * @desc Moves a bust to a new position
+ * 
+ * @arg speaker_name
+ * @text Speaker Name
+ * @desc The name of the speaker whose bust to move
+ * @type string
+ * 
+ * @arg x
+ * @desc The new x position of the bust
+ * @text X Position
+ * @type number
+ * @default 0
+ * 
+ * @arg y
+ * @desc The new y position of the bust
+ * @text Y Position
+ * @type number
+ * @default 0
+ * 
+ * @arg duration
+ * @desc The duration of the movement in milliseconds
+ * @text Duration
+ * @type number
+ * @default 3000
  */
 
 
@@ -93,11 +120,22 @@ BustManager.prototype.update = function() {
 
     for (const bust of Object.values(this._busts)) {
         if (bust.needsUpdate()) {
-            bust._container.x += (bust._targetX - bust._container.x) * 0.2;
-            bust._container.y += (bust._targetY - bust._container.y) * 0.2;
+            console.log(`Updating bust ${bust._name} position from (${bust._container.x}, ${bust._container.y}) to (${bust._targetX}, ${bust._targetY})`);
+            const elapsed = performance.now() - bust._moveStartTime;
+            const progress = Math.min(elapsed / bust._moveDuration, 1);
+            bust._container.x += (bust._targetX - bust._container.x) * progress;
+            bust._container.y += (bust._targetY - bust._container.y) * progress;
+
+            if (progress === 1) {
+                bust._moving = false;
+                bust._container.x = bust._targetX;
+                bust._container.y = bust._targetY;
+                
+            }
 
             bust._container.x = Math.round(bust._container.x);
             bust._container.y = Math.round(bust._container.y);
+
         }
     }
 }
@@ -111,22 +149,37 @@ function Bust(name, pose, face, x, y) {
 }
 
 Bust.prototype.initialize = function(name, pose, face, x, y) {
+    // Container for the bust's pose and face sprites 
     this._container = new PIXI.Container();
     this._container.x = x;
     this._container.y = y;
+    // Essentially an ID for each busts
     this._name = name;
+    // Related to bust movements
+    this._startX = x;
+    this._startY = y;
     this._targetX = x;
     this._targetY = y;
+    this._moveDuration = 0;
+    this._moveStartTime = 0;
+    this._moving = false;
+    // Sprites added as a child to the container
     this._faceSprite = new Sprite();
     this._poseSprite = new Sprite();
     this._container.addChild(this._poseSprite);
     this._container.addChild(this._faceSprite);
+    // Running an initial update to set the pose and face to default values
     this.updateBust(pose, face);
 }
 
-Bust.prototype.moveTo = function(x, y) {
+Bust.prototype.moveBusts = function(x, y, duration = 3000) {
+    this._startX = this._container.x;
+    this._startY = this._container.y;
     this._targetX = x;
     this._targetY = y;
+    this._moveDuration = duration; // To take as an arg
+    this._moveStartTime = performance.now();
+    this._moving = true;
 }
 
 Bust.prototype.updateBust = function(pose, face) {
@@ -201,9 +254,24 @@ PluginManager.registerCommand(
         const y = Number(args.y);
         bustManager.showBusts(name, pose, face, x, y);
         bustManager._busts[name]._container.visible = true;
-        bustManager._busts[name].moveTo(x, y);
+        bustManager._busts[name].moveBusts(x, y);
     }
 );
+
+PluginManager.registerCommand(
+    "BustImages",
+    "moveBusts",
+    args => {
+        const name = args.speaker_name;
+        const x = Number(args.x);
+        const y = Number(args.y);
+        const duration = Number(args.duration) || 3000;
+        if (bustManager._busts[name]) {
+            bustManager._busts[name]._container.visible = true;
+            bustManager._busts[name].moveBusts(x, y, duration);
+        }
+    }
+)
 
 
 // ----------------------
