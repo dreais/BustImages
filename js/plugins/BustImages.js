@@ -24,6 +24,16 @@
  * @version 0.1
  * @url https://github.com/dreais/BustImages
  *
+ * @param poseFolder
+ * @text Pose folder's name
+ * @type string
+ * @default Pose
+ * 
+ * @param expressionFolder
+ * @text Expression folder's name
+ * @type string
+ * @default Expression
+ * 
  * @command showBusts
  * @text Show Busts
  * @desc Shows a bust
@@ -253,8 +263,8 @@ Bust.prototype.moveBusts = function(x, y, duration = 3000) {
 Bust.prototype.updateBust = function(pose, face) {
     this._pose = pose;
     this._face = face;
-    this._poseSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/Pose/" + pose);
-    this._faceSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/Expression/" + face);
+    this._poseSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/" + params.poseFolder +"/" + pose);
+    this._faceSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/"+ params.expressionFolder + "/" + face);
 }
 
 Bust.prototype.needsUpdate = function() {
@@ -361,6 +371,7 @@ PluginManager.registerCommand(
 // Other hooks
 // ----------------------
 
+const params = PluginManager.parameters("BustImages");
 const bustManager = new BustManager();
 
 // MISC STUFF
