@@ -334,6 +334,11 @@ Bust.prototype.updateMovement = function() {
     return this._moving;
 };
 
+Bust.prototype.resetTint = function() { 
+    this._faceSprite.tint = 0xFFFFFF;
+    this._poseSprite.tint = 0xFFFFFF;
+}
+
 Bust.prototype.darkenTint = function() { 
     // TODO change to an updateTint of some sort instead
     this._faceSprite.tint = 0x888888;
@@ -393,14 +398,17 @@ Bust.prototype.update = function() {
 //  Window_Message hooks
 // ----------------------
 
-const _Window_Message_terminateMessage = Window_Message.prototype.terminateMessage;
-Window_Message.prototype.terminateMessage = function() {
-    _Window_Message_terminateMessage.call(this);
-    console.log("Hooked into Window_Message.terminateMessage!");
+const _Window_Message_startMessage = Window_Message.prototype.startMessage;
+Window_Message.prototype.startMessage = function() {
+    _Window_Message_startMessage.call(this);
+    const speakerID = $gameMessage.speakerName();
+    console.log(speakerID);
     for (const bust of Object.values(bustManager._busts)) {
-        bust._container.visible = true;
-        bust._faceSprite.tint = 0x888888;
-        bust._poseSprite.tint = 0x888888;
+        if (bust._name == speakerID) {
+            bust.resetTint();
+        } else {
+            bust.darkenTint();
+        }
     }
 };
 
