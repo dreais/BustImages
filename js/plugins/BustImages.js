@@ -140,6 +140,28 @@
  * @type number
  * @default 3000
  * @parent Transition Effects
+ * 
+ * @command hideBusts
+ * @text Hide Busts
+ * @desc Hides a bust
+ * 
+ * @arg speaker_name
+ * @text Speaker Name (ID)
+ * @desc The name of the speaker whose bust to move
+ * @type string
+ * 
+ * @arg side
+ * @text Fade-out side
+ * @desc The side relative to the bust to fade-out to
+ * @type select
+ * @option Left
+ * @value left
+ * @option Right
+ * @value right
+ * @option Top
+ * @value top
+ * @option Bottom
+ * @value bottom
  */
 
 
@@ -153,6 +175,13 @@ const createEmptySprite = function(x, y, filename) {
     sprite.visible = false;
     return sprite;
 }
+
+const BustSide = Object.freeze({
+    LEFT: "left",
+    RIGHT: "right",
+    TOP: "top",
+    BOTTOM: "bottom"
+});
 
 
 // ----------------------
@@ -170,6 +199,7 @@ BustManager.prototype.initialize = function() {
     this.container = null;
     this._busts = [];
     this._active_bust = null;
+    this._clearRequest = false;
 };
 
 BustManager.prototype.showBusts = function(name, pose, face, x, y) {
@@ -185,7 +215,7 @@ BustManager.prototype.showBusts = function(name, pose, face, x, y) {
     if (!this._busts[name]) {
         this._busts[name] = new Bust(name, pose, face, x, y);
     } else {
-        this._busts[name].updateBust(pose, face);
+        this._busts[name].updateAssets(pose, face);
     }
     if (this._busts[name]) {
         this._busts[name]._container.visible = true;
@@ -199,22 +229,20 @@ BustManager.prototype.update = function() {
     if (!this._busts) return
 
     for (const bust of Object.values(this._busts)) {
-        if (bust.needsUpdate()) {
-            console.log(`Updating bust ${bust._name} position from (${bust._container.x}, ${bust._container.y}) to (${bust._targetX}, ${bust._targetY})`);
-            const elapsed = performance.now() - bust._moveStartTime;
-            const progress = Math.min(elapsed / bust._moveDuration, 1);
-            bust._container.x += (bust._targetX - bust._container.x) * progress;
-            bust._container.y += (bust._targetY - bust._container.y) * progress;
-            if (progress === 1) {
-                bust._moving = false;
-                bust._container.x = bust._targetX;
-                bust._container.y = bust._targetY;
-            }
-            bust._container.x = Math.round(bust._container.x);
-            bust._container.y = Math.round(bust._container.y);
-
-        }
+        bust.update();
+        if (!bust._moving && !bust._hiding && this._clearRequest)
+            this.clear();
     }
+}
+
+BustManager.prototype.clear = function() {
+    console.log("Clear");
+    for (const bust of Object.values(this._busts)) {
+        bust._container.visible = false;
+    }
+    this._container = null;
+    this._busts = [];
+    this._clearRequest = false;
 }
 
 
@@ -247,7 +275,11 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._container.addChild(this._poseSprite);
     this._container.addChild(this._faceSprite);
     // Running an initial update to set the pose and face to default values
-    this.updateBust(pose, face);
+    this.updateAssets(pose, face);
+    // Related to bust fade-outs
+    this._fadeDuration = 0;
+    this._fadeStartTime = 0;
+    this._hiding = false;
 }
 
 Bust.prototype.moveBusts = function(x, y, duration = 3000) {
@@ -260,16 +292,84 @@ Bust.prototype.moveBusts = function(x, y, duration = 3000) {
     this._moving = true;
 }
 
-Bust.prototype.updateBust = function(pose, face) {
+Bust.prototype.updateAssets = function(pose, face) {
     this._pose = pose;
     this._face = face;
     this._poseSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/" + params.poseFolder +"/" + pose);
     this._faceSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/"+ params.expressionFolder + "/" + face);
 }
 
-Bust.prototype.needsUpdate = function() {
-    return this._container.x !== this._targetX || this._container.y !== this._targetY;
+Bust.prototype.updateMovement = function() {
+    if (this._moving) {
+        const elapsed = performance.now() - this._moveStartTime;
+        const progress = Math.min(elapsed / this._moveDuration, 1);
+        this._container.x += (this._targetX - this._container.x) * progress;
+        this._container.y += (this._targetY - this._container.y) * progress;
+        if (progress === 1) {
+            this._moving = false;
+            this._container.x = this._targetX;
+            this._container.y = this._targetY;
+        }
+        this._container.x = Math.round(this._container.x);
+        this._container.y = Math.round(this._container.y);
+        return this._moving;
+    }
+    return this._moving;
 };
+
+Bust.prototype.darkenTint = function() { 
+    // TODO change to an updateTint of some sort instead
+    this._faceSprite.tint = 0x888888;
+    this._poseSprite.tint = 0x888888;
+}
+
+Bust.prototype.hideBust = function(side, duration) {
+    this.darkenTint();
+    switch (side) {
+        case BustSide.LEFT:
+            this._targetX -= 150
+            break;
+        case BustSide.RIGHT:
+            this._targetX -= 150
+            break;
+        case BustSide.TOP:
+            this._targetY -= 150
+            break;
+        case BustSide.BOTTOM:
+            this._targetY += 150
+            break;
+        default:
+            break;
+    }
+    const x = this._targetX;
+    const y = this._targetY;
+    this.moveBusts(x, y, 1000);
+    this._fadeDuration = duration;
+    this._fadeStartTime = performance.now();
+    this._hiding = true;
+}
+
+Bust.prototype.updateHiding = function() {
+    if (this._hiding) {
+        const elapsed = performance.now() - this._fadeStartTime;
+        const progress = Math.min(elapsed / this._fadeDuration, 1);
+        this._container.alpha -= this._container.alpha * progress;
+        if (progress === 1) {
+            this._container.alpha = 0;
+            this._container.visible = false;
+            this._hiding = false;
+        }
+        return this._hiding;
+    }
+    return this._hiding;
+}
+
+Bust.prototype.update = function() {
+    if (this.updateMovement()) {
+    }
+    if (this.updateHiding()) {
+    }
+}
 
 
 // ----------------------
@@ -303,20 +403,11 @@ Scene_Map.prototype.update = function() {
 // Game_Interpreter hooks
 // ----------------------
 
-const _Game_Interpreter_updateWaitMode = Game_Interpreter.prototype.updateWaitMode;
-Game_Interpreter.prototype.updateWaitMode = function() {
-    const wasWaitingForMessage = this._waitMode === "message";
-    const waiting = _Game_Interpreter_updateWaitMode.call(this);
+const _Game_Interpreter_terminate = Game_Interpreter.prototype.terminate;
+Game_Interpreter.prototype.terminate = function() {
+    _Game_Interpreter_terminate.call(this);
 
-    if (wasWaitingForMessage && !waiting) {
-        if (this.nextEventCode() === 0) {
-            for (const bust of Object.values(bustManager._busts)) {
-                bust._container.visible = false;
-            }
-        }
-    }
-
-    return waiting;
+    bustManager._clearRequest = true;
 };
 
 
@@ -335,6 +426,7 @@ const setPresetPosition = function (pos_preset, x, y) {
     return { x: final_x, y: final_y };
 }
 
+// TODO: rely on the update()
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
@@ -366,6 +458,18 @@ PluginManager.registerCommand(
     }
 )
 
+PluginManager.registerCommand(
+    "BustImages",
+    "hideBusts",
+    args => {
+        const name = args.speaker_name;
+        const side = args.side;
+        if (bustManager._busts[name]) {
+            bustManager._busts[name].hideBust(side, 1000);
+        }
+    }
+)
+
 
 // ----------------------
 // Other hooks
@@ -376,3 +480,10 @@ const bustManager = new BustManager();
 
 // MISC STUFF
 nw.Window.get().showDevTools();
+
+/*
+* TODO LIST
+* appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
+* error management
+* calling 2 text commands will tint the active speaker => this needs to be offloaded when initializing a new speaker instead of window_message
+*/
