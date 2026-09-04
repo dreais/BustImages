@@ -34,6 +34,11 @@
  * @type string
  * @default Expression
  * 
+ * @param posPadding
+ * @text Window padding used for busts (in %age)
+ * @type number
+ * @default 0%
+ * 
  * @command showBusts
  * @text Show Busts
  * @desc Shows a bust
@@ -65,12 +70,18 @@
  * @desc The preset position of the bust
  * @text Position Preset
  * @type select
- * @option 0
+ * @option -1
+ * @value -1
  * @option 1
+ * @value 0
  * @option 2
+ * @value 25
  * @option 3
+ * @value 50
  * @option 4
+ * @value 75
  * @option 5
+ * @value 100
  * @default 0
  * @parent Bust Positioning 
  * 
@@ -108,12 +119,18 @@
  * @desc The preset position of the bust
  * @text Position Preset
  * @type select
- * @option 0
+ * @option -1
+ * @value -1
  * @option 1
+ * @value 0
  * @option 2
+ * @value 25
  * @option 3
+ * @value 50
  * @option 4
+ * @value 75
  * @option 5
+ * @value 100
  * @default 0
  * @parent Bust Positioning 
  * 
@@ -138,7 +155,7 @@
  * @desc The duration of the movement in milliseconds
  * @text Duration
  * @type number
- * @default 3000
+ * @default 1000
  * @parent Transition Effects
  * 
  * @command hideBusts
@@ -202,7 +219,7 @@ BustManager.prototype.initialize = function() {
     this._clearRequest = false;
 };
 
-BustManager.prototype.showBusts = function(name, pose, face, x, y) {
+BustManager.prototype.showBusts = function(name, pose, face) {
     if (!this.container) {
         this.container = new PIXI.Container();
     }
@@ -213,7 +230,7 @@ BustManager.prototype.showBusts = function(name, pose, face, x, y) {
     }
     // Initialize the bust pose and face if they don't exist
     if (!this._busts[name]) {
-        this._busts[name] = new Bust(name, pose, face, x, y);
+        this._busts[name] = new Bust(name, pose, face, 0, 0);
     } else {
         this._busts[name].updateAssets(pose, face);
     }
@@ -282,7 +299,7 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._hiding = false;
 }
 
-Bust.prototype.moveBusts = function(x, y, duration = 3000) {
+Bust.prototype.moveBusts = function(x, y, duration = 1000) {
     this._startX = this._container.x;
     this._startY = this._container.y;
     this._targetX = x;
@@ -330,7 +347,7 @@ Bust.prototype.hideBust = function(side, duration) {
             this._targetX -= 150
             break;
         case BustSide.RIGHT:
-            this._targetX -= 150
+            this._targetX += 150
             break;
         case BustSide.TOP:
             this._targetY -= 150
@@ -415,10 +432,14 @@ Game_Interpreter.prototype.terminate = function() {
 // Plugin commands
 // ----------------------
 
-const setPresetPosition = function (pos_preset, x, y) {
+const setPresetPosition = function (pos_preset, x, y, bitmapWidth) {
     let final_x = 0, final_y = 0;
+    const padding = Number(params.posPadding.replace("%", ""));
+    const width = Graphics.width - (Graphics.width * (padding / 100));
+    console.log(pos_preset);
     if (pos_preset) {
-        // todo later: implement preset positions
+        final_x = (width - bitmapWidth) * (pos_preset / 100);
+        final_y = 0;
     } else {
         final_x = x;
         final_y = y;
@@ -430,15 +451,16 @@ const setPresetPosition = function (pos_preset, x, y) {
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
-    args => {
+    async args => {
         console.log("showBusts command called with args:", args);
         const name = args.speaker_name;
         const pose = args.pose;
         const face = args.face;
         const pos_preset = Number(args.pos_preset);
-        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y));
-        bustManager.showBusts(name, pose, face, x, y);
+        bustManager.showBusts(name, pose, face);
         bustManager._busts[name]._container.visible = true;
+        await waitForBitmap(bustManager._busts[name]._faceSprite.bitmap);
+        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y), bustManager._busts[name]._faceSprite.bitmap.width);
         bustManager._busts[name].moveBusts(x, y);
     }
 );
@@ -449,8 +471,8 @@ PluginManager.registerCommand(
     args => {
         const name = args.speaker_name;
         const pos_preset = Number(args.pos_preset);
-        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y));
-        const duration = Number(args.duration) || 3000;
+        const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y), bustManager._busts[name]._faceSprite.bitmap.width);
+        const duration = Number(args.duration) || 1000;
         if (bustManager._busts[name]) {
             bustManager._busts[name]._container.visible = true;
             bustManager._busts[name].moveBusts(x, y, duration);
@@ -480,6 +502,20 @@ const bustManager = new BustManager();
 
 // MISC STUFF
 nw.Window.get().showDevTools();
+
+function waitForBitmap(bitmap) {
+    return new Promise(resolve => {
+        const check = () => {
+            if (bitmap.isReady()) {
+                resolve(bitmap);
+            } else {
+                setTimeout(check, 10);
+            }
+        };
+
+        check();
+    });
+}
 
 /*
 * TODO LIST
