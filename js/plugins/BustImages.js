@@ -179,6 +179,25 @@
  * @value top
  * @option Bottom
  * @value bottom
+ * 
+ * @command changeBustsAssets
+ * @text Change Busts Assets
+ * @desc Changes a bust's pose and expression
+ *
+ * @arg speaker_name
+ * @text Speaker Name (ID)
+ * @desc The name of the speaker whose bust to change
+ * @type string
+ *
+ * @arg pose
+ * @desc The pose of the speaker's bust to display
+ * @text Pose
+ * @type string
+ *
+ * @arg face
+ * @desc The expression of the speaker's bust to display
+ * @text Face
+ * @type string
  */
 
 
@@ -191,6 +210,20 @@ const createEmptySprite = function(x, y, filename) {
     sprite.bitmap = ImageManager.loadPicture(filename);
     sprite.visible = false;
     return sprite;
+}
+
+function waitForBitmap(bitmap) {
+    return new Promise(resolve => {
+        const check = () => {
+            if (bitmap.isReady()) {
+                resolve(bitmap);
+            } else {
+                setTimeout(check, 10);
+            }
+        };
+
+        check();
+    });
 }
 
 const BustSide = Object.freeze({
@@ -253,13 +286,14 @@ BustManager.prototype.update = function() {
 }
 
 BustManager.prototype.clear = function() {
-    console.log("Clear");
     for (const bust of Object.values(this._busts)) {
         bust._container.visible = false;
     }
-    this._container = null;
+    this.container.removeChildren();
+    this.container = null;
     this._busts = [];
     this._clearRequest = false;
+    console.log("Clear");
 }
 
 
@@ -304,7 +338,7 @@ Bust.prototype.moveBusts = function(x, y, duration = 1000) {
     this._startY = this._container.y;
     this._targetX = x;
     this._targetY = y;
-    this._moveDuration = duration; // To take as an arg
+    this._moveDuration = duration;
     this._moveStartTime = performance.now();
     this._moving = true;
 }
@@ -334,6 +368,11 @@ Bust.prototype.updateMovement = function() {
     return this._moving;
 };
 
+Bust.prototype.resetTint = function() { 
+    this._faceSprite.tint = 0xFFFFFF;
+    this._poseSprite.tint = 0xFFFFFF;
+}
+
 Bust.prototype.darkenTint = function() { 
     // TODO change to an updateTint of some sort instead
     this._faceSprite.tint = 0x888888;
@@ -360,7 +399,7 @@ Bust.prototype.hideBust = function(side, duration) {
     }
     const x = this._targetX;
     const y = this._targetY;
-    this.moveBusts(x, y, 1000);
+    this.moveBusts(x, y, duration);
     this._fadeDuration = duration;
     this._fadeStartTime = performance.now();
     this._hiding = true;
@@ -393,14 +432,17 @@ Bust.prototype.update = function() {
 //  Window_Message hooks
 // ----------------------
 
-const _Window_Message_terminateMessage = Window_Message.prototype.terminateMessage;
-Window_Message.prototype.terminateMessage = function() {
-    _Window_Message_terminateMessage.call(this);
-    console.log("Hooked into Window_Message.terminateMessage!");
+const _Window_Message_startMessage = Window_Message.prototype.startMessage;
+Window_Message.prototype.startMessage = function() {
+    _Window_Message_startMessage.call(this);
+    const speakerID = $gameMessage.speakerName();
+    console.log(speakerID);
     for (const bust of Object.values(bustManager._busts)) {
-        bust._container.visible = true;
-        bust._faceSprite.tint = 0x888888;
-        bust._poseSprite.tint = 0x888888;
+        if (bust._name == speakerID) {
+            bust.resetTint();
+        } else {
+            bust.darkenTint();
+        }
     }
 };
 
@@ -447,7 +489,6 @@ const setPresetPosition = function (pos_preset, x, y, bitmapWidth) {
     return { x: final_x, y: final_y };
 }
 
-// TODO: rely on the update()
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
@@ -487,7 +528,20 @@ PluginManager.registerCommand(
         const name = args.speaker_name;
         const side = args.side;
         if (bustManager._busts[name]) {
-            bustManager._busts[name].hideBust(side, 1000);
+            bustManager._busts[name].hideBust(side, 500);
+        }
+    }
+)
+
+PluginManager.registerCommand(
+    "BustImages",
+    "changeBustsAssets",
+    args => {
+        const name = args.speaker_name;
+        const face = args.face;
+        const pose = args.pose;
+        if (bustManager._busts[name]) {
+            bustManager._busts[name].updateAssets(pose, face)
         }
     }
 )
@@ -503,23 +557,10 @@ const bustManager = new BustManager();
 // MISC STUFF
 nw.Window.get().showDevTools();
 
-function waitForBitmap(bitmap) {
-    return new Promise(resolve => {
-        const check = () => {
-            if (bitmap.isReady()) {
-                resolve(bitmap);
-            } else {
-                setTimeout(check, 10);
-            }
-        };
-
-        check();
-    });
-}
 
 /*
 * TODO LIST
 * appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
 * error management
-* calling 2 text commands will tint the active speaker => this needs to be offloaded when initializing a new speaker instead of window_message
+* going too fast between 2 events may makes a crash if clear() hasn't finished before the next one
 */
