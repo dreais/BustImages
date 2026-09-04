@@ -155,7 +155,7 @@
  * @desc The duration of the movement in milliseconds
  * @text Duration
  * @type number
- * @default 3000
+ * @default 1000
  * @parent Transition Effects
  * 
  * @command hideBusts
@@ -299,7 +299,7 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._hiding = false;
 }
 
-Bust.prototype.moveBusts = function(x, y, duration = 3000) {
+Bust.prototype.moveBusts = function(x, y, duration = 1000) {
     this._startX = this._container.x;
     this._startY = this._container.y;
     this._targetX = x;
@@ -347,7 +347,7 @@ Bust.prototype.hideBust = function(side, duration) {
             this._targetX -= 150
             break;
         case BustSide.RIGHT:
-            this._targetX -= 150
+            this._targetX += 150
             break;
         case BustSide.TOP:
             this._targetY -= 150
@@ -472,7 +472,7 @@ PluginManager.registerCommand(
         const name = args.speaker_name;
         const pos_preset = Number(args.pos_preset);
         const { x, y } = setPresetPosition(pos_preset, Number(args.x), Number(args.y), bustManager._busts[name]._faceSprite.bitmap.width);
-        const duration = Number(args.duration) || 3000;
+        const duration = Number(args.duration) || 1000;
         if (bustManager._busts[name]) {
             bustManager._busts[name]._container.visible = true;
             bustManager._busts[name].moveBusts(x, y, duration);
