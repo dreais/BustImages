@@ -140,6 +140,28 @@
  * @type number
  * @default 3000
  * @parent Transition Effects
+ * 
+ * @command hideBusts
+ * @text Hide Busts
+ * @desc Hides a bust
+ * 
+ * @arg speaker_name
+ * @text Speaker Name (ID)
+ * @desc The name of the speaker whose bust to move
+ * @type string
+ * 
+ * @arg side
+ * @text Fade-out side
+ * @desc The side relative to the bust to fade-out to
+ * @type select
+ * @option Left
+ * @value left
+ * @option Right
+ * @value right
+ * @option Top
+ * @value top
+ * @option Bottom
+ * @value bottom
  */
 
 
@@ -153,6 +175,13 @@ const createEmptySprite = function(x, y, filename) {
     sprite.visible = false;
     return sprite;
 }
+
+const BustSide = Object.freeze({
+    LEFT: "left",
+    RIGHT: "right",
+    TOP: "top",
+    BOTTOM: "bottom"
+});
 
 
 // ----------------------
@@ -170,6 +199,7 @@ BustManager.prototype.initialize = function() {
     this.container = null;
     this._busts = [];
     this._active_bust = null;
+    this._clearRequest = false;
 };
 
 BustManager.prototype.showBusts = function(name, pose, face, x, y) {
@@ -200,7 +230,19 @@ BustManager.prototype.update = function() {
 
     for (const bust of Object.values(this._busts)) {
         bust.update();
+        if (!bust._moving && !bust._hiding && this._clearRequest)
+            this.clear();
     }
+}
+
+BustManager.prototype.clear = function() {
+    console.log("Clear");
+    for (const bust of Object.values(this._busts)) {
+        bust._container.visible = false;
+    }
+    this._container = null;
+    this._busts = [];
+    this._clearRequest = false;
 }
 
 
@@ -234,6 +276,10 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._container.addChild(this._faceSprite);
     // Running an initial update to set the pose and face to default values
     this.updateAssets(pose, face);
+    // Related to bust fade-outs
+    this._fadeDuration = 0;
+    this._fadeStartTime = 0;
+    this._hiding = false;
 }
 
 Bust.prototype.moveBusts = function(x, y, duration = 3000) {
@@ -254,7 +300,7 @@ Bust.prototype.updateAssets = function(pose, face) {
 }
 
 Bust.prototype.updateMovement = function() {
-    if (this._container.x !== this._targetX || this._container.y !== this._targetY) {
+    if (this._moving) {
         const elapsed = performance.now() - this._moveStartTime;
         const progress = Math.min(elapsed / this._moveDuration, 1);
         this._container.x += (this._targetX - this._container.x) * progress;
@@ -271,22 +317,57 @@ Bust.prototype.updateMovement = function() {
     return this._moving;
 };
 
-Bust.prototype.darkenTint = function() {
+Bust.prototype.darkenTint = function() { 
+    // TODO change to an updateTint of some sort instead
     this._faceSprite.tint = 0x888888;
     this._poseSprite.tint = 0x888888;
 }
 
-Bust.prototype.hideBust = function(side) {
+Bust.prototype.hideBust = function(side, duration) {
     this.darkenTint();
-    this._targetX = this._container.x + 50;
-    console.log(this._targetX, this._container.x);
-    this.moveBusts(this._targetX, this._targetY, 10000);
-    this._container.visible = false;
+    switch (side) {
+        case BustSide.LEFT:
+            this._targetX -= 150
+            break;
+        case BustSide.RIGHT:
+            this._targetX -= 150
+            break;
+        case BustSide.TOP:
+            this._targetY -= 150
+            break;
+        case BustSide.BOTTOM:
+            this._targetY += 150
+            break;
+        default:
+            break;
+    }
+    const x = this._targetX;
+    const y = this._targetY;
+    this.moveBusts(x, y, 1000);
+    this._fadeDuration = duration;
+    this._fadeStartTime = performance.now();
+    this._hiding = true;
+}
+
+Bust.prototype.updateHiding = function() {
+    if (this._hiding) {
+        const elapsed = performance.now() - this._fadeStartTime;
+        const progress = Math.min(elapsed / this._fadeDuration, 1);
+        this._container.alpha -= this._container.alpha * progress;
+        if (progress === 1) {
+            this._container.alpha = 0;
+            this._container.visible = false;
+            this._hiding = false;
+        }
+        return this._hiding;
+    }
+    return this._hiding;
 }
 
 Bust.prototype.update = function() {
     if (this.updateMovement()) {
-        console.log(`Updating bust ${this._name} position from (${this._container.x}, ${this._container.y}) to (${this._targetX}, ${this._targetY})`);
+    }
+    if (this.updateHiding()) {
     }
 }
 
@@ -322,20 +403,11 @@ Scene_Map.prototype.update = function() {
 // Game_Interpreter hooks
 // ----------------------
 
-const _Game_Interpreter_updateWaitMode = Game_Interpreter.prototype.updateWaitMode;
-Game_Interpreter.prototype.updateWaitMode = function() {
-    const wasWaitingForMessage = this._waitMode === "message";
-    const waiting = _Game_Interpreter_updateWaitMode.call(this);
+const _Game_Interpreter_terminate = Game_Interpreter.prototype.terminate;
+Game_Interpreter.prototype.terminate = function() {
+    _Game_Interpreter_terminate.call(this);
 
-    if (wasWaitingForMessage && !waiting) {
-        if (this.nextEventCode() === 0) {
-            for (const bust of Object.values(bustManager._busts)) {
-                bust._container.visible = false;
-            }
-        }
-    }
-
-    return waiting;
+    bustManager._clearRequest = true;
 };
 
 
@@ -354,6 +426,7 @@ const setPresetPosition = function (pos_preset, x, y) {
     return { x: final_x, y: final_y };
 }
 
+// TODO: rely on the update()
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
@@ -385,6 +458,18 @@ PluginManager.registerCommand(
     }
 )
 
+PluginManager.registerCommand(
+    "BustImages",
+    "hideBusts",
+    args => {
+        const name = args.speaker_name;
+        const side = args.side;
+        if (bustManager._busts[name]) {
+            bustManager._busts[name].hideBust(side, 1000);
+        }
+    }
+)
+
 
 // ----------------------
 // Other hooks
@@ -399,5 +484,6 @@ nw.Window.get().showDevTools();
 /*
 * TODO LIST
 * appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
-* hide busts + disappear side (^)
+* error management
+* calling 2 text commands will tint the active speaker => this needs to be offloaded when initializing a new speaker instead of window_message
 */
