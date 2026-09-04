@@ -179,6 +179,25 @@
  * @value top
  * @option Bottom
  * @value bottom
+ * 
+ * @command changeBustsAssets
+ * @text Change Busts Assets
+ * @desc Changes a bust's pose and expression
+ *
+ * @arg speaker_name
+ * @text Speaker Name (ID)
+ * @desc The name of the speaker whose bust to change
+ * @type string
+ *
+ * @arg pose
+ * @desc The pose of the speaker's bust to display
+ * @text Pose
+ * @type string
+ *
+ * @arg face
+ * @desc The expression of the speaker's bust to display
+ * @text Face
+ * @type string
  */
 
 
@@ -501,6 +520,19 @@ PluginManager.registerCommand(
     }
 )
 
+PluginManager.registerCommand(
+    "BustImages",
+    "changeBustsAssets",
+    args => {
+        const name = args.speaker_name;
+        const face = args.face;
+        const pose = args.pose;
+        if (bustManager._busts[name]) {
+            bustManager._busts[name].updateAssets(pose, face)
+        }
+    }
+)
+
 
 // ----------------------
 // Other hooks
@@ -530,5 +562,5 @@ function waitForBitmap(bitmap) {
 * TODO LIST
 * appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
 * error management
-* calling 2 text commands will tint the active speaker => this needs to be offloaded when initializing a new speaker instead of window_message
+* going too fast between 2 events may makes a crash if clear() hasn't finished before the next one
 */
