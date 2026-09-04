@@ -212,6 +212,20 @@ const createEmptySprite = function(x, y, filename) {
     return sprite;
 }
 
+function waitForBitmap(bitmap) {
+    return new Promise(resolve => {
+        const check = () => {
+            if (bitmap.isReady()) {
+                resolve(bitmap);
+            } else {
+                setTimeout(check, 10);
+            }
+        };
+
+        check();
+    });
+}
+
 const BustSide = Object.freeze({
     LEFT: "left",
     RIGHT: "right",
@@ -324,7 +338,7 @@ Bust.prototype.moveBusts = function(x, y, duration = 1000) {
     this._startY = this._container.y;
     this._targetX = x;
     this._targetY = y;
-    this._moveDuration = duration; // To take as an arg
+    this._moveDuration = duration;
     this._moveStartTime = performance.now();
     this._moving = true;
 }
@@ -475,7 +489,6 @@ const setPresetPosition = function (pos_preset, x, y, bitmapWidth) {
     return { x: final_x, y: final_y };
 }
 
-// TODO: rely on the update()
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
@@ -544,19 +557,6 @@ const bustManager = new BustManager();
 // MISC STUFF
 nw.Window.get().showDevTools();
 
-function waitForBitmap(bitmap) {
-    return new Promise(resolve => {
-        const check = () => {
-            if (bitmap.isReady()) {
-                resolve(bitmap);
-            } else {
-                setTimeout(check, 10);
-            }
-        };
-
-        check();
-    });
-}
 
 /*
 * TODO LIST
