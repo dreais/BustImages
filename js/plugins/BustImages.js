@@ -34,6 +34,11 @@
  * @type string
  * @default Expression
  * 
+ * @param posPadding
+ * @text Window padding used for busts (in %age)
+ * @type number
+ * @default 0%
+ * 
  * @command showBusts
  * @text Show Busts
  * @desc Shows a bust
@@ -429,7 +434,8 @@ Game_Interpreter.prototype.terminate = function() {
 
 const setPresetPosition = function (pos_preset, x, y, bitmapWidth) {
     let final_x = 0, final_y = 0;
-    const width = Graphics.width;
+    const padding = Number(params.posPadding.replace("%", ""));
+    const width = Graphics.width - (Graphics.width * (padding / 100));
     console.log(pos_preset);
     if (pos_preset) {
         final_x = (width - bitmapWidth) * (pos_preset / 100);
