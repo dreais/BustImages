@@ -253,13 +253,14 @@ BustManager.prototype.update = function() {
 }
 
 BustManager.prototype.clear = function() {
-    console.log("Clear");
     for (const bust of Object.values(this._busts)) {
         bust._container.visible = false;
     }
-    this._container = null;
+    this.container.removeChildren();
+    this.container = null;
     this._busts = [];
     this._clearRequest = false;
+    console.log("Clear");
 }
 
 
@@ -365,7 +366,7 @@ Bust.prototype.hideBust = function(side, duration) {
     }
     const x = this._targetX;
     const y = this._targetY;
-    this.moveBusts(x, y, 1000);
+    this.moveBusts(x, y, duration);
     this._fadeDuration = duration;
     this._fadeStartTime = performance.now();
     this._hiding = true;
@@ -495,7 +496,7 @@ PluginManager.registerCommand(
         const name = args.speaker_name;
         const side = args.side;
         if (bustManager._busts[name]) {
-            bustManager._busts[name].hideBust(side, 1000);
+            bustManager._busts[name].hideBust(side, 500);
         }
     }
 )
