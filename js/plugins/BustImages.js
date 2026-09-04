@@ -18,10 +18,12 @@
  * Available commands:
  * - Show Busts
  * - Move Busts
+ * - Hide Busts
+ * - Change Busts Assets
  * 
  * For all commands, a "Speaker Name" is required and acts as a unique ID for characters. Poses and faces need to be included in img/pictures/busts/[speaker name] as a separate folder.
  * 
- * @version 0.1
+ * @version 0.3
  * @url https://github.com/dreais/BustImages
  *
  * @param poseFolder
