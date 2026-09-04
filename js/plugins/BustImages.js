@@ -185,7 +185,7 @@ BustManager.prototype.showBusts = function(name, pose, face, x, y) {
     if (!this._busts[name]) {
         this._busts[name] = new Bust(name, pose, face, x, y);
     } else {
-        this._busts[name].updateBust(pose, face);
+        this._busts[name].updateAssets(pose, face);
     }
     if (this._busts[name]) {
         this._busts[name]._container.visible = true;
@@ -199,21 +199,7 @@ BustManager.prototype.update = function() {
     if (!this._busts) return
 
     for (const bust of Object.values(this._busts)) {
-        if (bust.needsUpdate()) {
-            console.log(`Updating bust ${bust._name} position from (${bust._container.x}, ${bust._container.y}) to (${bust._targetX}, ${bust._targetY})`);
-            const elapsed = performance.now() - bust._moveStartTime;
-            const progress = Math.min(elapsed / bust._moveDuration, 1);
-            bust._container.x += (bust._targetX - bust._container.x) * progress;
-            bust._container.y += (bust._targetY - bust._container.y) * progress;
-            if (progress === 1) {
-                bust._moving = false;
-                bust._container.x = bust._targetX;
-                bust._container.y = bust._targetY;
-            }
-            bust._container.x = Math.round(bust._container.x);
-            bust._container.y = Math.round(bust._container.y);
-
-        }
+        bust.update();
     }
 }
 
@@ -247,7 +233,7 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._container.addChild(this._poseSprite);
     this._container.addChild(this._faceSprite);
     // Running an initial update to set the pose and face to default values
-    this.updateBust(pose, face);
+    this.updateAssets(pose, face);
 }
 
 Bust.prototype.moveBusts = function(x, y, duration = 3000) {
@@ -260,16 +246,49 @@ Bust.prototype.moveBusts = function(x, y, duration = 3000) {
     this._moving = true;
 }
 
-Bust.prototype.updateBust = function(pose, face) {
+Bust.prototype.updateAssets = function(pose, face) {
     this._pose = pose;
     this._face = face;
     this._poseSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/" + params.poseFolder +"/" + pose);
     this._faceSprite.bitmap = ImageManager.loadPicture("busts/" + this._name + "/"+ params.expressionFolder + "/" + face);
 }
 
-Bust.prototype.needsUpdate = function() {
-    return this._container.x !== this._targetX || this._container.y !== this._targetY;
+Bust.prototype.updateMovement = function() {
+    if (this._container.x !== this._targetX || this._container.y !== this._targetY) {
+        const elapsed = performance.now() - this._moveStartTime;
+        const progress = Math.min(elapsed / this._moveDuration, 1);
+        this._container.x += (this._targetX - this._container.x) * progress;
+        this._container.y += (this._targetY - this._container.y) * progress;
+        if (progress === 1) {
+            this._moving = false;
+            this._container.x = this._targetX;
+            this._container.y = this._targetY;
+        }
+        this._container.x = Math.round(this._container.x);
+        this._container.y = Math.round(this._container.y);
+        return this._moving;
+    }
+    return this._moving;
 };
+
+Bust.prototype.darkenTint = function() {
+    this._faceSprite.tint = 0x888888;
+    this._poseSprite.tint = 0x888888;
+}
+
+Bust.prototype.hideBust = function(side) {
+    this.darkenTint();
+    this._targetX = this._container.x + 50;
+    console.log(this._targetX, this._container.x);
+    this.moveBusts(this._targetX, this._targetY, 10000);
+    this._container.visible = false;
+}
+
+Bust.prototype.update = function() {
+    if (this.updateMovement()) {
+        console.log(`Updating bust ${this._name} position from (${this._container.x}, ${this._container.y}) to (${this._targetX}, ${this._targetY})`);
+    }
+}
 
 
 // ----------------------
@@ -376,3 +395,9 @@ const bustManager = new BustManager();
 
 // MISC STUFF
 nw.Window.get().showDevTools();
+
+/*
+* TODO LIST
+* appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
+* hide busts + disappear side (^)
+*/
