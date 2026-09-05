@@ -77,10 +77,6 @@ For this to work, set the Show Text command's Speaker field to the same name use
 
 Preset positions calculate a horizontal location from the game resolution and the expression image width. The available values are intended as five evenly spaced screen positions. Because the current implementation treats the preset value `0` as manual placement, use explicit **X** and **Y** coordinates when you need a reliably left-aligned bust.
 
-## Current scope
-
-Version 0.1 provides static layered busts, movement, fading, and speaker tinting. Animated facial parts, additional transition effects, scaling, and more robust error handling are not yet included.
-
 ## Author
 
 Created by dreais. Project URL: <https://github.com/dreais/BustImages>
