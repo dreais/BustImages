@@ -584,5 +584,4 @@ nw.Window.get().showDevTools();
 * TODO LIST
 * appearing side (could be left/side/top/bottom, mix maybe? with a mask?)
 * error management
-* going too fast between 2 events may makes a crash if clear() hasn't finished before the next one
 */
