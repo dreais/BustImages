@@ -23,7 +23,7 @@
  * 
  * For all commands, a "Speaker Name" is required and acts as a unique ID for characters. Poses and faces need to be included in img/pictures/busts/[speaker name] as a separate folder.
  * 
- * @version 0.3
+ * @version 0.4.0
  * @url https://github.com/dreais/BustImages
  *
  * @param poseFolder
@@ -290,17 +290,17 @@ BustManager.prototype.update = function() {
     }
 }
 
-BustManager.prototype.clear = function() {
-    console.log("clearing");
-    for (const bust of Object.values(this._busts)) {
-        bust._container.visible = false;
-        bust._container.alpha = 1;
-    }
-    SceneManager._scene.removeChild(this.container);
-    this.container.removeChildren();
-    this.container = null;
-    this._busts = {};
-}
+// legacy, might reuse
+// BustManager.prototype.clear = function() {
+//     for (const bust of Object.values(this._busts)) {
+//         bust._container.visible = false;
+//         bust._container.alpha = 1;
+//     }
+//     SceneManager._scene.removeChild(this.container);
+//     this.container.removeChildren();
+//     this.container = null;
+//     this._busts = {};
+// }
 
 
 // ----------------------
@@ -338,6 +338,7 @@ Bust.prototype.initialize = function(name, pose, face, x, y) {
     this._fadeStartTime = 0;
     this._hiding = false;
     this._parentOperationID;
+    this._ownerId = null;
 }
 
 Bust.prototype.moveBusts = function(x, y, duration = 1000) {
@@ -412,6 +413,20 @@ Bust.prototype.hideBust = function(side, duration) {
     this._hiding = true;
 }
 
+BustManager.prototype.removeBustsOwnedBy = function(ownerId) {
+    for (const [name, bust] of Object.entries(this._busts)) {
+        if (bust._ownerId === ownerId) {
+            this.container.removeChild(bust._container);
+            delete this._busts[name];
+        }
+    }
+
+    if (Object.keys(this._busts).length === 0 && this.container) {
+        this.container.parent?.removeChild(this.container);
+        this.container = null;
+    }
+};
+
 Bust.prototype.updateHiding = function() {
     if (this._hiding) {
         const elapsed = performance.now() - this._fadeStartTime;
@@ -468,25 +483,20 @@ Scene_Map.prototype.update = function() {
 // Game_Interpreter hooks
 // ----------------------
 
+let interpreterId = 0;
+
 const _Game_Interpreter_setup = Game_Interpreter.prototype.setup;
 Game_Interpreter.prototype.setup = function(list, eventId) {
-    // console.log("Entering a new event", {
-    //     eventId,
-    //     mapId: $gameMap.mapId(),
-    //     commands: list.length
-    // });
     _Game_Interpreter_setup.call(this, list, eventId);
-    if (bustManager._operationID !== bustManager._clearID) {
-        bustManager.clear();
-    }
+    this._bustImagesOwnerId = interpreterId++;
 };
 
 const _Game_Interpreter_terminate = Game_Interpreter.prototype.terminate;
 Game_Interpreter.prototype.terminate = function() {
-    _Game_Interpreter_terminate.call(this);
+    const ownerId = this._bustImagesOwnerId;
+    bustManager.removeBustsOwnedBy(ownerId);
 
-    bustManager._clearID = bustManager._operationID;
-    bustManager._operationID++;
+    _Game_Interpreter_terminate.call(this);
 };
 
 
@@ -511,13 +521,18 @@ const setPresetPosition = function (pos_preset, x, y, bitmapWidth) {
 PluginManager.registerCommand(
     "BustImages",
     "showBusts",
-    async args => {
-        // console.log("showBusts command called with args:", args);
+    async function(args) {
+        const ownerId = this._bustImagesOwnerId;
+
         const name = args.speaker_name;
         const pose = args.pose;
         const face = args.face;
         const pos_preset = Number(args.pos_preset);
         bustManager.showBusts(name, pose, face);
+        
+        const bust = bustManager._busts[name];
+        bust._ownerId = ownerId;
+        
         bustManager._busts[name]._container.visible = true;
         bustManager._busts[name]._parentOperationID = bustManager._operationID;
         const bitmapReadiness = await waitForBitmap(bustManager._busts[name]._faceSprite.bitmap, bustManager._operationID);
